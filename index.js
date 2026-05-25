@@ -1,4 +1,7 @@
-require('dotenv').config();
+#!/usr/bin/env node
+const path = require('path');
+// Ensure Kiwi always looks for its .env in its home directory, no matter where it's launched
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const readline = require('readline');
@@ -9,12 +12,14 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const MODEL_NAME = "gemini-1.5-flash";
 
 // --- Database & Memory ---
-const dbPath = './database.json';
+// Ensure the database stays safely in the Kiwi home folder
+const dbPath = path.join(__dirname, 'database.json');
 
 function loadDB() {
     const defaultDB = { xp: 0, level: 1, seeds: 0, mode: 'agent', achievements: [] };
     if (fs.existsSync(dbPath)) {
         const existingData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+        // Merge old data to prevent crashes when upgrading
         return { ...defaultDB, ...existingData };
     }
     return defaultDB;
@@ -59,14 +64,13 @@ class Spinner {
         this.timer = setInterval(() => {
             const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
             const frame = this.frames[this.idx];
-            // \r returns cursor to start of line, allowing in-place updates
             process.stdout.write(`\r${colors.gray}${frame} ${this.text} (${elapsed}s)${colors.reset}`);
             this.idx = (this.idx + 1) % this.frames.length;
         }, 80);
     }
     stop() {
         if (this.timer) clearInterval(this.timer);
-        process.stdout.write('\r\x1b[K'); // Clear the line completely
+        process.stdout.write('\r\x1b[K'); // Clear line
         process.stdout.write('\x1B[?25h'); // Show cursor
     }
 }
@@ -222,12 +226,11 @@ async function startKiwi() {
         if (!text) { rl.prompt(); return; }
 
         try {
-            // Instantiate and start the spinner
             const spinner = new Spinner("foraging for answers... 🌿");
             spinner.start();
 
             let result = await chat.sendMessage(text);
-            spinner.stop(); // Stop spinner when network responds
+            spinner.stop();
 
             let functionCall = result.response.functionCalls();
 
@@ -235,16 +238,13 @@ async function startKiwi() {
                 const call = functionCall[0];
 
                 if (call.name === 'plan') {
-                    // Mimic the ThinkTool UI from Milo
                     console.log(`\n${colors.gray}★ ThinkTool${colors.reset}`);
                     console.log(`${colors.gray}${call.args.thoughts}${colors.reset}\n`);
 
                     spinner.start();
-                    // Send a dummy response back to acknowledge the plan was received
                     result = await chat.sendMessage([{ functionResponse: { name: 'plan', response: { status: "plan logged" } } }]);
                     spinner.stop();
                 } else {
-                    // Execute standard tools
                     const toolResult = executeTool(call.name, call.args);
 
                     spinner.start();

@@ -1,0 +1,14 @@
+{
+    "name": "kiwi",
+    "version": "1.0.0",
+    "description": "A relaxed AI coding agent that lives in your terminal.",
+    "main": "index.js",
+    "bin": {
+        "kiwi": "./index.js"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.11.0",
+        "dotenv": "^16.4.5",
+        "oh-my-logo": "^0.5.0"
+    }
+}
